@@ -8,7 +8,7 @@ save('data/data.mat','data');
 
 
 for ii=1:2000
-    dummyImg = dummyRobot(img, 200,300);
+    dummyImg = dummyRobot(img, 200, 300);
     figure(1)
     imshow(dummyImg);
     signals(1).sig = dummyImg;

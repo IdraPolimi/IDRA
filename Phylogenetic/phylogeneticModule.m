@@ -19,6 +19,7 @@ for ii = 1: length(signals)
         case 'HighSaturated' %To be implemented
             signals(ii).sig(1:40)
             value = sum(signals(ii).sig)/length(signals(ii).sig);
+            phyloSignals = zeros(size(value));
             phyloSignals = [phyloSignals value];
         case 'None' 
             value = 0;

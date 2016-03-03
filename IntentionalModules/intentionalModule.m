@@ -5,13 +5,13 @@ function [categoryOutput relevantSignal] = intentionalModule(filteredInput, phyl
 phyloThreshold = 0.3;
 distanceThreshold = 0.3;
 maxNumberOfCluster = 10;
-load('IDRA_Matlab/data/ics.mat');
-load('IDRA_Matlab/data/data.mat');
-load('IDRA_Matlab/data/categories.mat');
+load('IDRA/data/ics.mat');
+load('IDRA/data/data.mat');
+load('IDRA/data/categories.mat');
 
 
 %%
-tempInput.sig = [filteredInput(1).sig ; filteredInput(3).sig];
+tempInput.sig = [filteredInput(1).sig ; filteredInput(2).sig];
     
 projectedInput = projectInput(tempInput.sig, ics);
 disp(['Phylosig: ', num2str(phylogSignal)]);
