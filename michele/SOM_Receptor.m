@@ -14,11 +14,11 @@ classdef SOM_Receptor < handle
    
    methods
        function SetActivation(obj, val)
-           obj.som.R_SetActivation(obj.index, val);
+           obj.som.SetActivations(obj.index, val);
        end
        
        function a = GetActivation(obj)
-           a = obj.som.R_GetActivation(obj.index);
+           a = obj.som.GetActivations(obj.index);
        end
    end
 end

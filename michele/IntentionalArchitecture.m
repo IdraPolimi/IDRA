@@ -11,7 +11,7 @@ classdef IntentionalArchitecture < handle
         im_connections          % N x N parse connection matrix containing the connections between intentional 
                                 % modules
               
-        
+        im_activations
         im_bootstraping         % N x 1 array determining whether an intentional module is bootstrabing or not
         
         im_type
@@ -21,7 +21,6 @@ classdef IntentionalArchitecture < handle
         im_ics_size
         
         im_ca                   % N x OUT matrix containing categories activation
-        im_input_matrix
         
         im_output_size
         im_input_size
@@ -33,19 +32,17 @@ classdef IntentionalArchitecture < handle
     
     properties
        context
-       receptors
        receptors_source
+       receptors_indeces
     end
     
     properties
-        CountIntentionalModules
+        CountNodes
         MaxSize
     end
     
     methods
-        function ia = IntentionalArchitecture()
-            k = 2;
-            maxSize = 20;
+        function ia = IntentionalArchitecture(maxSize, k)
             
             ia.im_output_size = 10;
             ia.im_input_size = k * ia.im_output_size;
@@ -53,15 +50,16 @@ classdef IntentionalArchitecture < handle
             
             ia.im_max_size = maxSize;
             
-            ia.context = SOM_Context(20, ia.im_output_size * ia.im_max_size, 10);
+            ia.context = SOM_Context(10, ia.im_output_size * ia.im_max_size, 7);
             
-            ia.receptors = repmat(SOM_Receptor(ia.context,0), ia.im_output_size, ia.im_max_size );
             ia.receptors_source = zeros(1,  ia.im_max_size);
-            
+            ia.receptors_indeces = zeros(ia.im_max_size, ia.im_output_size);
             
             ia.im_connections = zeros(maxSize, maxSize);
             
             ia.im_bootstraping = zeros(maxSize, 1);
+            
+            ia.im_activations = zeros(maxSize, 1);
             
             ia.im_type = zeros(maxSize, 1);
             
@@ -69,129 +67,128 @@ classdef IntentionalArchitecture < handle
         
             ia.im_ca = rand(ia.im_max_size, ia.im_output_size);
             
-            ia.im_input_matrix = zeros(maxSize, ia.im_input_size, ia.im_output_size);
+            ia.im_ca(1, :) = zeros(ia.im_output_size, 1);
+            ia.im_count = 2;
             
-            ia.im_count = 1;
-            
-            
-            
-            ia.NewIntentionalModule([1 4]);
-            ia.NewIntentionalModule([2 3]);
-            ia.NewIntentionalModule([1 2]);
-            ia.NewIntentionalModule([1 2]);
-            ia.NewIntentionalModule([3 4]);
-            ia.NewIntentionalModule([3 2]);
-            ia.NewIntentionalModule([5 4]);
-            ia.NewIntentionalModule([2 3]);
-            ia.NewIntentionalModule([6 5]);
-            ia.NewIntentionalModule([4 3]);
         end
         
         function size = get.MaxSize(ia)
             size = length(ia.im_bootstraping);
         end
         
-        function count = get.CountIntentionalModules(ia)
-            count = ia.im_count - 1;
+        function count = get.CountNodes(ia)
+            count = ia.im_count - 2;
         end
         
-        function im = NewIntentionalModule(ia, inputs)
-            
-            if ia.CountIntentionalModules() >= ia.MaxSize()
-                im = 0;
-                return
-            end
-            
-            index = ia.im_count;
-            ia.im_count = ia.im_count + 1;
-            ia.im_type(index) = ia.TYPE_IM;
-            
-            im = IntentionalModule(ia, index);
-            
-            ia.IM_SetBootstraping(index, 1);
-            
-            ia.im_connections(index, inputs) = 1;
-            
-            
-            ia.NewContextNode(index);
-            
-            UpdateIntentionalNode(ia, index, ia.im_output_size);
-        end
         
-        function NewContextNode(ia, im_index)
-            
-            index = ia.im_count;
-            ia.im_count = ia.im_count + 1;
-            
-            ia.im_type(index) = ia.TYPE_CONTEXT;
-            
-            ia.receptors_source(index) = im_index;
-            
-            for ii = 1:ia.im_output_size
-                r = ia.context.AddReceptor();
-                ia.receptors(ii, index) = r;
-            end
-            
-            UpdateContextNode(ia, index, ia.im_output_size);
-        end
-        
+       
         function Update(ia)
             
             %Update activations
             ca_size = ia.im_output_size;
             type = ia.im_type;
             
-            for ii = 1:ia.CountIntentionalModules()
+            for ii = 1:ia.CountNodes()
                 switch type(ii)
-                    case ia.TYPE_INPUT
-                        ia.UpdateInputNode(ii, ca_size);
-                    case ia.TYPE_CONTEXT
-                        ia.UpdateContextNode(ii, ca_size);
+                    % case ia.TYPE_INPUT
+                    %    ia.UpdateInputNode(ii, ca_size);
                     case ia.TYPE_IM
                         ia.UpdateIntentionalNode(ii, ca_size);
                 end
             end
             
+            % ia.UpdateInputNodes();
+            ia.UpdateContextNodes();
+            
             ia.context.Update();
         end
         
-        
-        
         function UpdateIntentionalNode(ia, index, activations_size)
             
-            in = ia.im_input_matrix(index) * reshape(transpose(ia.im_ca(ia.im_connections(index,:) == 1,:)), ia.im_input_size,1);
+            in = reshape(transpose(ia.im_ca(ia.im_connections(index,:) == 1,:)), ia.im_input_size,1);
             
-            w = reshape(ia.im_ics(index,:,:),ia.im_ics_size,ia.im_input_size) * in;
+            w = reshape(ia.im_ics(index,:,:), ia.im_ics_size, ia.im_input_size) * in;
             
             % Activations are a function of the distance between vector w 
             % and the centroids
+            in = ia.im_ca(ia.im_connections(index,:) == 1,:);
+            in = max(in);
+            ia.im_ca(index,:) = in;
             
-            
-            ia.im_ca(index,:) = rand(activations_size, 1);
+            ia.im_activations(index) = max( in );
         end
         
-        function UpdateContextNode(ia, index, activations_size)
+        function UpdateContextNodes(ia)
             
+            indeces = ia.im_type(:) == ia.TYPE_CONTEXT;
             
-            for ii = 1: ia.im_output_size
-               ia.im_ca(index, ii) = ia.receptors(ii, index).GetActivation();
-               ia.receptors(ii, index).SetActivation( ia.im_ca(ia.receptors_source(index), ii));
+            idx = ia.receptors_indeces(indeces, :);
+            r_indeces = idx;
+            
+            ia.im_ca(indeces, :) = ia.context.GetActivations(r_indeces);
+            
+            receptors_input = ia.im_ca(ia.receptors_source(indeces), :);
+            
+            ia.context.SetActivations(r_indeces, receptors_input);
+            
+        end
+        
+        function UpdateInputNodes(ia)
+            indeces = ia.im_type(:) == ia.TYPE_INPUT;
+            % ia.im_ca(index,:) = rand(activations_size, 1);
+        end
+        
+    end
+    
+    methods (Access = public)
+        %Node creation methods
+        
+        function node = NewInputNode(ia)
+            
+            index = ia.NextIndex(ia.TYPE_INPUT);
+            
+            if index < 1
+                node = 0;
+                return;
             end
             
+            node = InputNode(ia, index, ia.im_output_size);
             
         end
         
-        function UpdateInputNode(ia, index, activations_size)
+        function node = NewIntentionalModule(ia, inputs)
             
-            % we read random values
-            ia.im_ca(index,:) = rand(activations_size, 1);
+            k = ia.im_input_size / ia.im_output_size;
+            input_length = length(inputs);
+            
+            if input_length < k
+                inputs = [inputs, ones(k - input_length, 1) ];
+            end
+            
+            index = ia.NextIndex(ia.TYPE_IM);
+            
+            if index < 1
+                node = 0;
+                return;
+            end
+            
+            node = IntentionalModule(ia, index);
+            
+            ia.IM_SetBootstraping(index, 1);
+            
+            ia.im_connections(index, inputs) = 1;
+            
+            ia.NewContextNode(index);
+            
+            UpdateIntentionalNode(ia, index, ia.im_output_size);
         end
         
     end
     
     
-    methods
-        % Methods used by the intentional modules to access their data
+    methods (Access = public)
+        % Methods used by the nodes to access their data
+        
         function bs = IM_IsBootstraping(ia, index)
             bs = ia.im_bootstraping(index);
         end
@@ -200,19 +197,61 @@ classdef IntentionalArchitecture < handle
             ia.im_bootstraping(index) = val;
         end
         
-        function a = IM_GetActivation(ia, index)
+        function a = GetNodeActivation(ia, index)
+            % Getter for the activations of the node with the given index.
+            % InputNode:        activations are it's input
+            % IntentionalNode : activations are it's output categories
+            % ContextNode:      activations are the values of the context's
+            % som receptor
             a = ia.im_activations(index);
+        end
+        
+        function SetNodeActivation(ia, index, values)
+            % Setter for the activations of the node with the given index.
+            % InputNode:        activations are it's input
+            % IntentionalNode : activations are it's output categories
+            % ContextNode:      activations are the values of the context's
+            % som receptor
+            ia.im_ca(index,:) = values;
         end
     end
     
-    methods
-        function plot(ia)
-            while(1)
-                ia.Update();
-                bar3(ia.im_ca);
-                pause(0.04);
+    methods (Access = private)
+        
+        function NewContextNode(ia, im_index)
+            
+            index = ia.NextIndex(ia.TYPE_CONTEXT);
+            
+            if index < 1
+                return;
             end
+            
+            ia.receptors_source(index) = im_index;
+            
+            ia.receptors_indeces(index, :) = ia.context.nextAvailableIndeces(ia.im_output_size);
+            
+        end
+        
+        function index = NextIndex(ia, nodeType)
+            % Allocates and returns the first available index for a new
+            % node. A return value of -1 means that the intentional
+            % architecture is full
+            if ia.CountNodes() >= ia.MaxSize()
+                index = -1;
+                return
+            end
+            
+            index = ia.im_count;
+            ia.im_count = ia.im_count + 1;
+            
+            ia.im_type(index) = nodeType;
+        end
+        
+        function DoubleSize(ia)
+            
         end
     end
+    
+   
 end
 
