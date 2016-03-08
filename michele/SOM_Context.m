@@ -1,7 +1,5 @@
 classdef SOM_Context < handle
     properties 
-        width
-        height
         map
         count_receptors
         
@@ -9,25 +7,25 @@ classdef SOM_Context < handle
         
         current_activation
         
-        last_hit
+        LastHit
     end
     
     methods
         function ctx = SOM_Context(size, max_categories, neighborhood_size)
-            ctx.width = size;
-            ctx.height = size;
             ctx.neighborhood_size = neighborhood_size;
             
             ctx.count_receptors = 1;
             
-            ctx.map = ones(ctx.width, ctx.height, max_categories) * 0.01;
+            ctx.map = ones(size * 2, size, max_categories) * 0.01;
             
             
             ctx.current_activation = zeros(1, max_categories);
-            last_hit = zeros(1, 2);
+            ctx.LastHit = zeros(1, 2);
         end
         
         function DoubleSize(ctx)
+            
+            [width, height] = ctx.SOM_Width_Height();
             
             curr_size = length(ctx.current_activation);
             new_size = 2 * curr_size;
@@ -40,8 +38,10 @@ classdef SOM_Context < handle
             new_map_size = 2 * curr_size;
             inc_map_size = new_map_size - curr_map_size;
             
-            ctx.map = cat(3, ctx.map, rand(ctx.width, ctx.height, inc_map_size));
+            ctx.map = cat(3, ctx.map, rand(height, width, inc_map_size));
         end
+        
+        
         
         function indeces = NextAvailableIndeces(ctx, amount)
            indeces = zeros(amount, 1);
@@ -60,14 +60,16 @@ classdef SOM_Context < handle
             index = ctx.NextAvailableIndeces(1);
             receptor = SOM_Receptor(ctx, index);
         end
+    
         
         function Update(ctx)
+            [width, height] = ctx.SOM_Width_Height();
             ca = gpuArray(ctx.current_activation(1,:));
-            ca = repmat(ca, [ctx.width, 1, ctx.height]);
+            ca = repmat(ca, [height, 1, width]);
             
             ca = permute(ca, [1 3 2]);
             
-            dist = zeros(ctx.height, ctx.width);
+            dist = zeros(height, width);
             dist = gpuArray(dist);
             
             al = ctx.map;
@@ -92,8 +94,8 @@ classdef SOM_Context < handle
             nn = ctx.neighborhood_size;
            
             
-            for ii = max(1, r - nn) : min(ctx.height, r + nn)
-                for jj = max(1, c - nn) : min(ctx.width, c + nn)
+            for ii = max(1, r - nn) : min(height, r + nn)
+                for jj = max(1, c - nn) : min(width, c + nn)
                     currDist = sqrt(power(ii - r,2) + power(jj - c,2));
                     if currDist < nn
                         ctx.map(ii,jj,:) = ctx.UpdateNode(1 - (currDist/nn), reshape(ctx.map(ii,jj,:),1, size(ctx.map(ii,jj,:),3)), reshape(ca(ii,jj,:),1, size(ctx.map(ii,jj,:),3)));
@@ -102,7 +104,7 @@ classdef SOM_Context < handle
                 end
                 
             end
-            
+            ctx.LastHit = [r, c];
         end
         
         function res = UpdateNode(~, weight, old, new)
@@ -126,7 +128,15 @@ classdef SOM_Context < handle
         end
     end
     
+    methods 
+        
+        function [w, h] = SOM_Width_Height(ctx)
+            [h, w, ~] = size(ctx.map);
+        end
+    end
+    
     methods (Access = public)
+        
         function activations = GetActivations(ctx, indeces)
             indeces = transpose(indeces);
             fields = ctx.map(:,:,indeces);

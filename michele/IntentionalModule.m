@@ -25,11 +25,11 @@ classdef IntentionalModule
     methods
         
         function bs = get.IsBootstraping(im)
-            bs = im.intentionalArchitecture.IM_IsBootstraping(im.index);
+            bs = im.intentionalArchitecture.IsBootstraping(im.index);
         end
         
         function FinishBootstraping(im)
-            im.intentionalArchitecture.IM_SetBootstraping(im.index, 0);
+            im.intentionalArchitecture.SetBootstraping(im.index, 0);
         end
         
         function as = get.Activation(im)

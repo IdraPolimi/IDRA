@@ -1,6 +1,6 @@
 function ia = Main()
 
-    ia = IntentionalArchitecture(3, 128);
+    ia = IntentionalArchitecture(3, 64);
     
     input = ia.NewInputNode();
     input1 = ia.NewInputNode();

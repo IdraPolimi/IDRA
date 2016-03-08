@@ -126,7 +126,7 @@ classdef IntentionalArchitecture < handle
             
             node = IntentionalModule(ia, index);
             
-            ia.IM_SetBootstraping(index, 1);
+            ia.SetBootstraping(index, 1);
             
             ia.im_connections(index, inputs) = 1;
             
@@ -139,16 +139,16 @@ classdef IntentionalArchitecture < handle
     methods (Access = public)
         % Methods used by the nodes to access their data
         
-        function bs = IM_IsBootstraping(ia, index)
-            bs = ia.im_bootstraping(index);
+        function bs = IsBootstraping(ia, indeces)
+            bs = ia.im_bootstraping(indeces);
         end
         
-        function IM_SetBootstraping(ia, index, val)
-            ia.im_bootstraping(index) = val;
+        function SetBootstraping(ia, indeces, values)
+            ia.im_bootstraping(indeces) = values;
         end
         
         function a = GetNodesActivation(ia, indeces)
-            % Getter for the activations of the node with the given index.
+            % Getter for the activations of the nodes with the given indeces.
             % InputNode:        activations are it's input
             % IntentionalNode : activations are it's output categories
             % ContextNode:      activations are the values of the context's
@@ -156,14 +156,15 @@ classdef IntentionalArchitecture < handle
             a = ia.im_activations(indeces);
         end
         
-        function SetNodesActivation(ia, indeces, values)
-            % Setter for the activations of the node with the given index.
-            % InputNode:        activations are it's input
-            % IntentionalNode : activations are it's output categories
-            % ContextNode:      activations are the values of the context's
+        function SetCategoriesActivation(ia, indeces, values)
+            % Setter for the activations of the nodes' categories with the given indeces.
+            % InputNode:        categories activations are it's input
+            % IntentionalNode : categories activations are it's output categories
+            % ContextNode:      categories activations are the values of the context's
             % som receptor
             ia.im_ca(indeces,:) = values;
         end
+        
     end
     
     methods (Access = private)
@@ -182,10 +183,12 @@ classdef IntentionalArchitecture < handle
             
         end
         
+        
+        % Allocates and returns the first available index for a new
+        % node. A return value of -1 means that the intentional
+        % architecture is full.
+            
         function index = NextIndex(ia, nodeType)
-            % Allocates and returns the first available index for a new
-            % node. A return value of -1 means that the intentional
-            % architecture is full
             while ia.CountNodes() >= ia.MaxSize()
                 ia.DoubleSize();
             end
