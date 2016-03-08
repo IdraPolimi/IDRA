@@ -90,7 +90,7 @@ classdef SOM_Context < handle
             
             % update neighbourhood
             nn = ctx.neighborhood_size;
-           
+            
             
             for ii = max(1, r - nn) : min(ctx.height, r + nn)
                 for jj = max(1, c - nn) : min(ctx.width, c + nn)

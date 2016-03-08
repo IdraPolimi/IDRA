@@ -33,7 +33,7 @@ classdef IntentionalModule
         end
         
         function as = get.Activation(im)
-            as = im.intentionalArchitecture.GetNodeActivation(im.index);
+            as = im.intentionalArchitecture.GetNodesActivation(im.index);
         end
     end
 end
