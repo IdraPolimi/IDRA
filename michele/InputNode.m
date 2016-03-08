@@ -22,7 +22,11 @@ classdef InputNode < handle
             end
             values = values(1 : node.inputSize);
             node.ia.im_activations(node.index) = max(values);
+<<<<<<< HEAD
             node.ia.SetNodesActivation(node.index, values);
+=======
+            node.ia.SetNodeActivation(node.index, values);
+>>>>>>> b6b88a938b717ed156d1a581c61c16e3996b96db
         end
         
         function size = GetInputSize(node)
