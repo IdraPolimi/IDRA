@@ -1,10 +1,14 @@
 function ia = Main()
+    CheckGPU();
 
-    ia = IntentionalArchitecture(3, 64);
+    ia = IntentionalArchitecture(3, 16);
     
-    input = ia.NewInputNode();
-    input1 = ia.NewInputNode();
+    defaultFilter = @NoFilter;
     
+    input = ia.NewFilterNode(defaultFilter);
+    input1 = ia.NewFilterNode(defaultFilter);
+    
+    input.Test(zeros(input.InputSize() - 2, 1));
     
     ia.NewIntentionalModule([1 2]);
     ia.NewIntentionalModule([1 2]);
@@ -24,13 +28,13 @@ function ia = Main()
     
     PopulateIntentionalArchitecture(ia);
     
-    s = input.GetInputSize();
+    s = input.InputSize();
     c = 0.5 * ones(s, 1);
     a = -1;
     b = 1;
     
     cc = find(sum(ia.im_connections, 2) > 0);
-    cc1 = find(sum(ia.im_connections, 2) > 0);
+    %cc1 = find(sum(ia.im_connections, 2) > 0);
     
     %cc = cat(2, cc,transpose(cc1));
     
@@ -59,80 +63,28 @@ function ia = Main()
         end
         
 %         figure(2);
-%         pcolor(transpose(ia.im_ca));
+%         pcolor(power(transpose(ia.im_ca), 16));
         
     	pause(0.05);
     end
 
 end
 
+
+function CheckGPU()
+    global GPU_AVAILABLE;
+    try
+        gpuDevice();
+        GPU_AVAILABLE = 1;
+    catch
+        GPU_AVAILABLE = 0;
+    end
+end
+
+
 function PopulateIntentionalArchitecture(ia)
 
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 4)));
+    for i = 1:80
+    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 1.5)));
+    end
 end

@@ -16,7 +16,7 @@ classdef SOM_Context < handle
             
             ctx.count_receptors = 1;
             
-            ctx.map = ones(size, size, max_categories) * 0.01;
+            ctx.map = ones(size * 2, size, max_categories) * 0.01;
             
             
             ctx.current_activation = zeros(1, max_categories);
@@ -63,7 +63,9 @@ classdef SOM_Context < handle
     
         
         function Update(ctx)
+            
             [width, height] = ctx.SOM_Width_Height();
+           
             ca = gpuArray(ctx.current_activation(1,:));
             ca = repmat(ca, [height, 1, width]);
             
@@ -131,7 +133,12 @@ classdef SOM_Context < handle
     methods 
         
         function [w, h] = SOM_Width_Height(ctx)
-            [w, h, ~] = size(ctx.map);
+            [h, w, ~] = size(ctx.map);
+        end
+        
+        function hitMatrix = GetLastHit(ctx)
+           hitMatrix = zeros(ctx.SOM_Width_Height()); 
+           hitMatrix(ctx.LastHit(1), ctx.) = 1;
         end
     end
     

@@ -95,7 +95,7 @@ classdef IntentionalArchitecture < handle
     methods (Access = public)
         %Node creation methods
         
-        function node = NewInputNode(ia)
+        function node = NewFilterNode(ia, filterFunction)
             
             index = ia.NextIndex(ia.TYPE_INPUT);
             
@@ -104,7 +104,7 @@ classdef IntentionalArchitecture < handle
                 return;
             end
             
-            node = InputNode(ia, index, ia.im_output_size);
+            node = FilterNode(ia, index, ia.im_output_size, filterFunction);
             
         end
         

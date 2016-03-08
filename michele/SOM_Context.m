@@ -63,7 +63,9 @@ classdef SOM_Context < handle
     
         
         function Update(ctx)
+            
             [width, height] = ctx.SOM_Width_Height();
+           
             ca = gpuArray(ctx.current_activation(1,:));
             ca = repmat(ca, [height, 1, width]);
             
