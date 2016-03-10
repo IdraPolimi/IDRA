@@ -1,7 +1,28 @@
 function ia = Main()
-    CheckGPU();
 
-    ia = IntentionalArchitecture(3, 16);
+
+% 
+%     imgPath = '/home/michele/Development/IDRA/IDRA/data/imgDataset';
+%     imagefiles = dir('/home/michele/Development/IDRA/IDRA/data/imgDataset/*.jpg');      
+%     nfiles = length(imagefiles);    % Number of files found
+%     for ii=1:200
+%        currentfilename = imagefiles(ii).name;
+%        currentimage = imread(currentfilename);
+%        images(ii,:,:) = currentimage;
+%     end
+% 
+% 
+%     ss = size(images);
+%     images = reshape(images, ss(1), ss(2)*ss(3));
+% 
+%     images = double(images);
+%     [icasig, A, W] = ica(images, 16);
+
+
+    CheckGPU();
+    k = 2;
+    ia = IntentionalArchitecture(k, 16, 8);
+    ia.UseGPU = true;
     
     defaultFilter = @NoFilter;
     
@@ -26,7 +47,7 @@ function ia = Main()
     ia.NewIntentionalModule([4 12]);
     
     
-    PopulateIntentionalArchitecture(ia);
+    PopulateIntentionalArchitecture(ia, k);
     
     s = input.InputSize();
     c = 0.5 * ones(s, 1);
@@ -34,15 +55,18 @@ function ia = Main()
     b = 1;
     
     cc = find(sum(ia.im_connections, 2) > 0);
-    %cc1 = find(sum(ia.im_connections, 2) > 0);
+    cc1 = find(sum(ia.im_connections, 1) > 0);
     
-    %cc = cat(2, cc,transpose(cc1));
+    cc = cat(1, cc,transpose(cc1));
     
-    g = digraph(ia.im_connections(cc, cc));
+    g = digraph(ia.im_connections(1:ia.CountNodes(), 1:ia.CountNodes()));
     
     figure(1);
     p = plot(g);
-    highlight(p, 1:length(cc));
+    highlight(p, 1:ia.CountNodes());
+    
+    figure(2);
+    h = pcolor(power(ia.im_ca, 16));
    
     while 1
         r = (b-a).*rand(s,1) + a;
@@ -57,14 +81,16 @@ function ia = Main()
         
         activations = ia.im_activations(1:ia.CountNodes());
         
-        for ii = 1:length(cc)
-            pp = power(activations(cc(ii)), 16);
+        for ii = 1:ia.CountNodes()
+            pp = power(activations(ii), 16);
              highlight(p, ii, 'NodeColor', [1 - pp, pp, 0]);
         end
         
-%         figure(2);
-%         pcolor(power(transpose(ia.im_ca), 16));
+        h.CData = power(ia.im_ca, 16);
+        refreshdata(h);
         
+        
+    
     	pause(0.05);
     end
 
@@ -82,9 +108,13 @@ function CheckGPU()
 end
 
 
-function PopulateIntentionalArchitecture(ia)
+function PopulateIntentionalArchitecture(ia, k)
 
-    for i = 1:80
-    ia.NewIntentionalModule(min(ia.CountNodes() - 1, ceil(rand(1,3) * (ia.CountNodes() - 1) + ia.CountNodes() / 1.5)));
+    for i = 1:5
+    	ia.NewIntentionalModule([ceil(rand(1) * 2), max(1, min(ia.CountNodes() - 1, floor(rand(1,k -1) * (ia.CountNodes() - 1))))]);
+    end
+    
+    for i = 1:25
+        ia.NewIntentionalModule(max(1, min(ia.CountNodes() - 1, ceil(rand(1,k) * (ia.CountNodes() - 1)))));
     end
 end

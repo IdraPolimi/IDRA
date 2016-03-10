@@ -14,11 +14,12 @@ classdef IntentionalArchitecture < handle
         im_activations
         im_bootstraping         % N x 1 array determining whether an intentional module is bootstrabing or not
         
+        
         im_type
         
-        im_ics
+        im_ica
         
-        im_ics_size
+        im_ica_size
         
         im_ca                   % N x OUT matrix containing categories activation
         
@@ -28,6 +29,10 @@ classdef IntentionalArchitecture < handle
         im_count
         
         im_max_size
+        
+        
+        im_gathered_input
+        im_gathered_input_size
     end
     
     properties
@@ -39,14 +44,15 @@ classdef IntentionalArchitecture < handle
     properties
         CountNodes
         MaxSize
+        UseGPU
     end
     
     methods
-        function ia = IntentionalArchitecture(k, categoriesPerModule)
+        function ia = IntentionalArchitecture(k, categoriesPerModule, icaSize)
             maxSize = 1;
             ia.im_output_size = categoriesPerModule;
             ia.im_input_size = k * ia.im_output_size;
-            ia.im_ics_size = 5;
+            ia.im_ica_size = ia.im_output_size;%icaSize;
             ia.im_max_size = maxSize;
             
             ia.context = SOM_Context(20, ia.im_output_size * ia.im_max_size, 10);
@@ -62,13 +68,17 @@ classdef IntentionalArchitecture < handle
             
             ia.im_type = zeros(maxSize, 1);
             
-            ia.im_ics = rand(maxSize, ia.im_ics_size, ia.im_input_size);
+            ia.im_ica = zeros(maxSize, ia.im_ica_size, ia.im_input_size);
         
             ia.im_ca = rand(ia.im_max_size, ia.im_output_size);
             
             ia.im_ca(1, :) = zeros(ia.im_output_size, 1);
             ia.im_count = 2;
             
+            ia.im_gathered_input = zeros(ia.im_max_size, ia.im_input_size,100);
+            ia.im_gathered_input_size = ones(ia.im_max_size,1);
+            
+            ia.UseGPU = 0;
         end
         
         function size = get.MaxSize(ia)
@@ -79,7 +89,15 @@ classdef IntentionalArchitecture < handle
             count = ia.im_count;
         end
         
+        function res = get.UseGPU(ia)
+           res = ia.UseGPU ~= 0;
+        end
         
+        function set.UseGPU(ia, val)
+           ia.UseGPU = val;
+           r = ia.UseGPU();
+           ia.context.UseGPU = r;
+        end
        
         function Update(ia)
             ia.UpdateInputNodes();
@@ -109,13 +127,15 @@ classdef IntentionalArchitecture < handle
         end
         
         function node = NewIntentionalModule(ia, inputs)
-            
+            inputs = unique(inputs);
             k = ia.im_input_size / ia.im_output_size;
             input_length = length(inputs);
             
             if input_length < k
                 inputs = [inputs, ones(1, k - input_length) ];
             end
+            
+            inputs = inputs(1:k);
             
             index = ia.NextIndex(ia.TYPE_IM);
             
@@ -147,21 +167,21 @@ classdef IntentionalArchitecture < handle
             ia.im_bootstraping(indeces) = values;
         end
         
+        % Getter for the activations of the nodes with the given indeces.
+        % InputNode:        activations are it's input
+        % IntentionalNode : activations are it's output categories
+        % ContextNode:      activations are the values of the context's
+        % som receptor
         function a = GetNodesActivation(ia, indeces)
-            % Getter for the activations of the nodes with the given indeces.
-            % InputNode:        activations are it's input
-            % IntentionalNode : activations are it's output categories
-            % ContextNode:      activations are the values of the context's
-            % som receptor
             a = ia.im_activations(indeces);
         end
         
+        % Setter for the activations of the nodes' categories.
+        % InputNode:        categories activations are it's input
+        % IntentionalNode : categories activations are it's output categories
+        % ContextNode:      categories activations are the values of the context's
+        % som receptor
         function SetCategoriesActivation(ia, indeces, values)
-            % Setter for the activations of the nodes' categories with the given indeces.
-            % InputNode:        categories activations are it's input
-            % IntentionalNode : categories activations are it's output categories
-            % ContextNode:      categories activations are the values of the context's
-            % som receptor
             ia.im_ca(indeces,:) = values;
         end
         
@@ -183,11 +203,11 @@ classdef IntentionalArchitecture < handle
             
         end
         
+            
         
         % Allocates and returns the first available index for a new
         % node. A return value of -1 means that the intentional
         % architecture is full.
-            
         function index = NextIndex(ia, nodeType)
             while ia.CountNodes() >= ia.MaxSize()
                 ia.DoubleSize();
@@ -199,8 +219,8 @@ classdef IntentionalArchitecture < handle
             ia.im_type(index) = nodeType;
         end
         
-        function UpdateInputNodes(ia)
-            indeces = ia.im_type(:) == ia.TYPE_INPUT;
+        function UpdateInputNodes(~)
+            %indeces = ia.im_type(:) == ia.TYPE_INPUT;
             % ia.im_ca(index,:) = rand(activations_size, 1);
         end
         
@@ -213,12 +233,45 @@ classdef IntentionalArchitecture < handle
             
             res  = zeros(length(indeces), size(ia.im_ca, 2));
             
+            k = ia.im_input_size / ia.im_output_size;
             
             for ii = 1:length(indeces)
                 index = indeces(ii);
-            	in = ca(conn(index,:) == 1,:);
-            	in = max(in);
-            	res(ii,:) = in;
+                in_nodes = conn(index,:) == 1;
+            	in = ca(in_nodes,:);
+                kk = size(in, 1) - k;
+                in = cat(1, reshape(in, 1, ia.im_input_size)', zeros(ia.im_input_size * kk, 1));
+                
+                
+                if ia.IsBootstraping(index)
+                    % If the module is bootstraping
+                    
+                    if ia.im_gathered_input_size(index) >= size(ia.im_gathered_input,3)
+                        % If we have enough samples we perform ica
+                        
+                        sinin = reshape(ia.im_gathered_input(index,:,:), ia.im_input_size, size(ia.im_gathered_input,3));
+                        
+                        [~, ~, W] = ica(sinin, ia.im_ica_size);
+                        ia.im_ica(index,:,:) = W;
+                        ia.SetBootstraping(index,0);
+                    else
+                        % Otherwise we accumulate the sample if input
+                        % modules are activated
+                        if min(ia.im_activations(in_nodes)) > 0.1;
+                            ia.im_gathered_input(index, :, ia.im_gathered_input_size(index)) = in;
+                            ia.im_gathered_input_size(index) = ia.im_gathered_input_size(index) + 1;
+                        end
+                    end
+                else
+                    % If the module is not bootstraping we process the
+                    % sample through kmeans
+                    w = reshape(ia.im_ica(index,:,:), ia.im_ica_size, ia.im_input_size);
+                    res(ii,:) = w * in;
+                    
+%                     rr = kmeans(in, zeros(ia.im_output_size,1));
+                    res(ii,:) = abs(res(ii,:) ./max(abs(res(ii,:))));
+                end
+                
             end
             
             ia.im_ca(indeces,:) = res;
@@ -264,7 +317,7 @@ classdef IntentionalArchitecture < handle
             
             ia.im_type = cat(1, ia.im_type, zeros(inc_size, 1));
             
-            ia.im_ics = cat(1, ia.im_ics, zeros(inc_size, size(ia.im_ics, 2), size(ia.im_ics, 3)));
+            ia.im_ica = cat(1, ia.im_ica, zeros(inc_size, size(ia.im_ica, 2), size(ia.im_ica, 3)));
 
             ia.im_ca = cat(1, ia.im_ca, zeros(inc_size, ia.im_output_size));
 
@@ -273,6 +326,11 @@ classdef IntentionalArchitecture < handle
             ia.receptors_indeces = cat(1, ia.receptors_indeces, zeros(inc_size, size(ia.receptors_indeces,2)));
             
             ia.im_max_size = new_size;
+            
+            
+            ia.im_gathered_input = cat(1,ia.im_gathered_input, zeros(inc_size, ia.im_input_size,100));
+            ia.im_gathered_input_size = cat(1, ia.im_gathered_input_size, ones(inc_size,1));
+            
            
             ia.context.DoubleSize();
         end

@@ -8,6 +8,7 @@ classdef SOM_Context < handle
         current_activation
         
         LastHit
+        UseGPU
     end
     
     methods
@@ -16,11 +17,13 @@ classdef SOM_Context < handle
             
             ctx.count_receptors = 1;
             
-            ctx.map = ones(size * 2, size, max_categories) * 0.01;
+            ctx.map = ones(size, size, max_categories);
             
             
             ctx.current_activation = zeros(1, max_categories);
             ctx.LastHit = zeros(1, 2);
+            
+            ctx.UseGPU = 0;
         end
         
         function DoubleSize(ctx)
@@ -38,7 +41,7 @@ classdef SOM_Context < handle
             new_map_size = 2 * curr_size;
             inc_map_size = new_map_size - curr_map_size;
             
-            ctx.map = cat(3, ctx.map, rand(height, width, inc_map_size));
+            ctx.map = cat(3, ctx.map, zeros(height, width, inc_map_size));
         end
         
         
@@ -65,36 +68,51 @@ classdef SOM_Context < handle
         function Update(ctx)
             
             [width, height] = ctx.SOM_Width_Height();
-           
-            ca = gpuArray(ctx.current_activation(1,:));
-            ca = repmat(ca, [height, 1, width]);
+            useGPU = ctx.UseGPU();
             
+            ca = ctx.current_activation(1,:);
+            dist = zeros(height, width);
+            mm = ctx.map;
+            
+            if useGPU
+                ca = gpuArray(ca);
+                dist = gpuArray(dist);
+                mm = gpuArray(mm);
+            end
+            
+            ca = repmat(ca, [height, 1, width]);
             ca = permute(ca, [1 3 2]);
             
-            dist = zeros(height, width);
-            dist = gpuArray(dist);
             
-            al = ctx.map;
-            al = gpuArray(al);
-            
-            
-            bb = al - ca;
+            bb = mm - ca;
             
             bb = power(bb,2);
             
             dist = sqrt(sum(bb, 3));
             
-            dist = gather(dist);
-            ca = gather(ca);
             
             [r, c] = find(dist == min(dist(:)));
+            
+            
+            
+            if useGPU
+                ca = gather(ca);
+                dist = gather(dist);
+                mm = gather(mm);
+                r = gather(r);
+                c = gather(c);
+            end
+            
             
             r = r(1);
             c = c(1);
             
             % update neighbourhood
             nn = ctx.neighborhood_size;
-           
+            mask = zeros(height, width);
+            
+            
+            
             
             for ii = max(1, r - nn) : min(height, r + nn)
                 for jj = max(1, c - nn) : min(width, c + nn)
@@ -102,10 +120,9 @@ classdef SOM_Context < handle
                     if currDist < nn
                         ctx.map(ii,jj,:) = ctx.UpdateNode(1 - (currDist/nn), reshape(ctx.map(ii,jj,:),1, size(ctx.map(ii,jj,:),3)), reshape(ca(ii,jj,:),1, size(ctx.map(ii,jj,:),3)));
                     end
-                    
                 end
-                
             end
+            
             ctx.LastHit = [r, c];
         end
         
@@ -134,6 +151,19 @@ classdef SOM_Context < handle
         
         function [w, h] = SOM_Width_Height(ctx)
             [h, w, ~] = size(ctx.map);
+        end
+        
+        function res = get.UseGPU(ctx)
+        	res = ctx.UseGPU;
+        end
+        
+        function set.UseGPU(ctx, val)
+        	try
+                gpuDevice;
+            	ctx.UseGPU = val ~= 0;
+            catch
+                ctx.UseGPU = false;
+        	end
         end
     end
     
