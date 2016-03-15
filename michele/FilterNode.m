@@ -26,7 +26,7 @@ classdef FilterNode < handle
         
         function SetInput(node, values)
             if length(values) < node.InputSize
-                values = [values, zeros(node.InputSize - length(values))];
+                values = [values, zeros(1, node.InputSize - length(values))];
             end
             values = values(1 : node.InputSize);
             

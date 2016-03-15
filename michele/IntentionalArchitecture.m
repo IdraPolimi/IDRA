@@ -5,10 +5,11 @@ classdef IntentionalArchitecture < handle
        TYPE_INPUT = 1
        TYPE_CONTEXT = 2
        TYPE_IM = 3
+       TYPE_EMPTY = 0
     end
     
     properties
-        im_connections          % N x N parse connection matrix containing the connections between intentional 
+        im_connections          % N x N adjacency matrix containing the connections between intentional 
                                 % modules
               
         im_activations
@@ -19,20 +20,17 @@ classdef IntentionalArchitecture < handle
         
         im_ica
         
-        im_ica_size
         
         im_ca                   % N x OUT matrix containing categories activation
         
-        im_output_size
-        im_input_size
+        im_input_nodes
         
         im_count
         
-        im_max_size
-        
+        im_centroids
         
         im_gathered_input
-        im_gathered_input_size
+        im_gathered_input_count
     end
     
     properties
@@ -42,23 +40,28 @@ classdef IntentionalArchitecture < handle
     end
     
     properties
+        ICASize
+        NodesInputSize
+        NodesOutputSize
         CountNodes
         MaxSize
         UseGPU
+        TrainingSetSize
     end
     
     methods
-        function ia = IntentionalArchitecture(k, categoriesPerModule, icaSize)
+        function ia = IntentionalArchitecture(k, categoriesPerModule, icaSize, trainingSetSize)
             maxSize = 1;
-            ia.im_output_size = categoriesPerModule;
-            ia.im_input_size = k * ia.im_output_size;
-            ia.im_ica_size = ia.im_output_size;%icaSize;
-            ia.im_max_size = maxSize;
+            ia.im_input_nodes = k;
             
-            ia.context = SOM_Context(20, ia.im_output_size * ia.im_max_size, 10);
+            output_size = categoriesPerModule;
+            input_size = k * output_size;
             
-            ia.receptors_source = zeros(ia.im_max_size, 1);
-            ia.receptors_indeces = zeros(ia.im_max_size, ia.im_output_size);
+            
+            ia.context = SOM_Context(20, output_size * maxSize, 5);
+            
+            ia.receptors_source = zeros(maxSize, 1);
+            ia.receptors_indeces = zeros(maxSize, output_size);
             
             ia.im_connections = zeros(maxSize, maxSize);
             
@@ -66,19 +69,36 @@ classdef IntentionalArchitecture < handle
             
             ia.im_activations = zeros(maxSize, 1);
             
-            ia.im_type = zeros(maxSize, 1);
+            ia.im_type = ones(maxSize, 1) * ia.TYPE_EMPTY;
             
-            ia.im_ica = zeros(maxSize, ia.im_ica_size, ia.im_input_size);
+            ia.im_ica = zeros(maxSize, icaSize, input_size);
         
-            ia.im_ca = rand(ia.im_max_size, ia.im_output_size);
+            ia.im_ca = zeros(maxSize, output_size);
             
-            ia.im_ca(1, :) = zeros(ia.im_output_size, 1);
+            ia.im_ca(1, :) = ones(output_size, 1);
             ia.im_count = 2;
             
-            ia.im_gathered_input = zeros(ia.im_max_size, ia.im_input_size,100);
-            ia.im_gathered_input_size = ones(ia.im_max_size,1);
+            ia.im_gathered_input = zeros(maxSize, input_size,trainingSetSize);
+            ia.im_gathered_input_count = ones(maxSize,1);
+            ia.im_centroids = zeros(maxSize, icaSize, output_size);
             
             ia.UseGPU = 0;
+        end
+        
+        function s = get.ICASize(ia)
+            s = size(ia.im_ica,2);
+        end
+        
+        function s = get.TrainingSetSize(ia)
+            s = size(ia.im_gathered_input,3);
+        end
+        
+        function s = get.NodesInputSize(ia)
+            s = ia.im_input_nodes * size(ia.im_ca, 2);
+        end
+        
+        function s = get.NodesOutputSize(ia)
+           s = size(ia.im_ca, 2); 
         end
         
         function size = get.MaxSize(ia)
@@ -106,8 +126,6 @@ classdef IntentionalArchitecture < handle
             ia.UpdateNodesActivation();
         end
         
-        
-        
     end
     
     methods (Access = public)
@@ -122,13 +140,13 @@ classdef IntentionalArchitecture < handle
                 return;
             end
             
-            node = FilterNode(ia, index, ia.im_output_size, filterFunction);
+            node = FilterNode(ia, index, ia.NodesOutputSize(), filterFunction);
             
         end
         
         function node = NewIntentionalModule(ia, inputs)
             inputs = unique(inputs);
-            k = ia.im_input_size / ia.im_output_size;
+            k = ia.NodesInputSize() / ia.NodesOutputSize();
             input_length = length(inputs);
             
             if input_length < k
@@ -199,7 +217,7 @@ classdef IntentionalArchitecture < handle
             
             ia.receptors_source(index) = im_index;
             
-            ia.receptors_indeces(index, :) = ia.context.NextAvailableIndeces(ia.im_output_size);
+            ia.receptors_indeces(index, :) = ia.context.NextAvailableIndeces(ia.NodesOutputSize());
             
         end
         
@@ -213,7 +231,7 @@ classdef IntentionalArchitecture < handle
                 ia.DoubleSize();
             end
             
-            index = ia.im_count;
+            index = ia.CountNodes();
             ia.im_count = ia.im_count + 1;
             
             ia.im_type(index) = nodeType;
@@ -231,50 +249,67 @@ classdef IntentionalArchitecture < handle
             conn = ia.im_connections;
             indeces = find(type == ia.TYPE_IM);
             
-            res  = zeros(length(indeces), size(ia.im_ca, 2));
             
-            k = ia.im_input_size / ia.im_output_size;
+            k = ia.NodesInputSize() / ia.NodesOutputSize();
             
             for ii = 1:length(indeces)
                 index = indeces(ii);
                 in_nodes = conn(index,:) == 1;
             	in = ca(in_nodes,:);
                 kk = size(in, 1) - k;
-                in = cat(1, reshape(in, 1, ia.im_input_size)', zeros(ia.im_input_size * kk, 1));
+                in = reshape(in', 1, size(in,1) * size(in,2))';
+                in = cat(1, in, ones(ia.NodesInputSize() * kk, 1));
                 
                 
                 if ia.IsBootstraping(index)
                     % If the module is bootstraping
                     
-                    if ia.im_gathered_input_size(index) >= size(ia.im_gathered_input,3)
+                    if ia.im_gathered_input_count(index) > size(ia.im_gathered_input,3)
                         % If we have enough samples we perform ica
                         
-                        sinin = reshape(ia.im_gathered_input(index,:,:), ia.im_input_size, size(ia.im_gathered_input,3));
+                        gathered_input = ia.im_gathered_input(index,:,:);
                         
-                        [~, ~, W] = ica(sinin, ia.im_ica_size);
+                        sigin = reshape(gathered_input, ia.NodesInputSize(), size(gathered_input,3));
+                        
+                        
+                        [data, ~, W] = ica(sigin, ia.ICASize());
                         ia.im_ica(index,:,:) = W;
                         ia.SetBootstraping(index,0);
+                        
+                        
+                        updatedCategories = categorizeInput(data,ia.NodesOutputSize());
+                        ia.im_centroids(index,:,:) = updatedCategories;
+                        
+                        
                     else
                         % Otherwise we accumulate the sample if input
                         % modules are activated
-                        if min(ia.im_activations(in_nodes)) > 0.1;
-                            ia.im_gathered_input(index, :, ia.im_gathered_input_size(index)) = in;
-                            ia.im_gathered_input_size(index) = ia.im_gathered_input_size(index) + 1;
+                        aa = ia.GetNodesActivation(in_nodes);
+                        if min(aa) > 0.5;
+                             ia.im_gathered_input(index, :, ia.im_gathered_input_count(index)) = in;
+                            ia.im_gathered_input_count(index) = ia.im_gathered_input_count(index) + 1;
                         end
                     end
                 else
                     % If the module is not bootstraping we process the
                     % sample through kmeans
-                    w = reshape(ia.im_ica(index,:,:), ia.im_ica_size, ia.im_input_size);
-                    res(ii,:) = w * in;
+                    w = reshape(ia.im_ica(index,:,:), ia.ICASize(), ia.NodesInputSize());
                     
-%                     rr = kmeans(in, zeros(ia.im_output_size,1));
-                    res(ii,:) = abs(res(ii,:) ./max(abs(res(ii,:))));
+                    centroids = ia.im_centroids(index,:,:);
+                    
+                    centroids = reshape(centroids, size(centroids,2), size(centroids,3));
+                    
+                    ica_proj_sample = w * in;
+                    
+                    dist = sqrt(sum(abs(centroids - repmat(ica_proj_sample, 1, size(centroids,2))).^2,1));
+                    
+                    %dist = ones(size(dist)) ./ dist;
+                    
+                    ia.SetCategoriesActivation(index, ones(size(dist)) - tanh(dist));
                 end
                 
             end
             
-            ia.im_ca(indeces,:) = res;
         end
         
         function UpdateContextNodes(ia)
@@ -297,12 +332,23 @@ classdef IntentionalArchitecture < handle
         end
         
         function UpdateNodesActivation(ia)
-            ia.im_activations = max(ia.im_ca, [], 2);
+            
+            mask = ia.im_type == ia.TYPE_INPUT;
+            ia.im_activations(mask) = 1;
+            
+            mask = ia.im_type == ia.TYPE_IM;
+            ia.im_activations(mask) = max(ia.im_ca(mask), [], 2);
+            
+            mask = ia.im_type == ia.TYPE_CONTEXT;
+            ia.im_activations(mask) = max(ia.im_ca(mask), [], 2);
+            
+            mask = ia.im_type == ia.TYPE_EMPTY;
+            ia.im_activations(mask) = 1;
         end
         
         function DoubleSize(ia)
             
-            curr_size = ia.im_max_size;
+            curr_size = ia.MaxSize();
             new_size = 2 * curr_size;
             
             inc_size = new_size - curr_size;
@@ -315,22 +361,21 @@ classdef IntentionalArchitecture < handle
             ia.im_activations = cat(1, ia.im_activations, zeros(inc_size, 1));
             ia.im_bootstraping = cat(1, ia.im_bootstraping, zeros(inc_size, 1));
             
-            ia.im_type = cat(1, ia.im_type, zeros(inc_size, 1));
+            ia.im_type = cat(1, ia.im_type, ones(inc_size, 1) * ia.TYPE_EMPTY);
             
             ia.im_ica = cat(1, ia.im_ica, zeros(inc_size, size(ia.im_ica, 2), size(ia.im_ica, 3)));
 
-            ia.im_ca = cat(1, ia.im_ca, zeros(inc_size, ia.im_output_size));
+            ia.im_ca = cat(1, ia.im_ca, zeros(inc_size, ia.NodesOutputSize()));
 
             ia.receptors_source = cat(1, ia.receptors_source, zeros(inc_size, 1));
             
             ia.receptors_indeces = cat(1, ia.receptors_indeces, zeros(inc_size, size(ia.receptors_indeces,2)));
             
-            ia.im_max_size = new_size;
             
             
-            ia.im_gathered_input = cat(1,ia.im_gathered_input, zeros(inc_size, ia.im_input_size,100));
-            ia.im_gathered_input_size = cat(1, ia.im_gathered_input_size, ones(inc_size,1));
-            
+            ia.im_gathered_input = cat(1,ia.im_gathered_input, zeros(inc_size, ia.NodesInputSize(),ia.TrainingSetSize()));
+            ia.im_gathered_input_count = cat(1, ia.im_gathered_input_count, ones(inc_size,1));
+            ia.im_centroids = cat(1, ia.im_centroids, zeros(inc_size, ia.ICASize(), ia.NodesOutputSize()));
            
             ia.context.DoubleSize();
         end

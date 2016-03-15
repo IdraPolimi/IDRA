@@ -17,7 +17,7 @@ classdef SOM_Context < handle
             
             ctx.count_receptors = 1;
             
-            ctx.map = ones(size, size, max_categories);
+            ctx.map = ones(size, size, max_categories) * 0.001;
             
             
             ctx.current_activation = zeros(1, max_categories);
@@ -70,7 +70,7 @@ classdef SOM_Context < handle
             [width, height] = ctx.SOM_Width_Height();
             useGPU = ctx.UseGPU();
             
-            ca = ctx.current_activation(1,:);
+            ca = ctx.current_activation;
             dist = zeros(height, width);
             mm = ctx.map;
             
@@ -129,12 +129,7 @@ classdef SOM_Context < handle
         function res = UpdateNode(~, weight, old, new)
             a = weight;
             a = sqrt(a);
-            res = 0;
-            try
-                res = (1-a) .* old + a * new;
-            catch e
-                tt = 1;
-            end
+            res = (1-a) .* old + a * new;
                 
         end
         
@@ -175,15 +170,15 @@ classdef SOM_Context < handle
             s1 = size(indeces,1);
             s2 = size(indeces, 2);
             
-            
-            activations = sum(fields); 
-            activations = sum(activations);
-            
-            mm = max(activations);
-            
-            activations = power(activations ./ mm, 2);
-            
-            activations = transpose(reshape(activations, s1, s2));
+            mm = max(max(fields));
+            mm = reshape(mm, s1, s2);
+            activations = transpose(mm);
+%             activations = mean(fields, 1); 
+%             activations = mean(activations, 2);
+%             
+%             activations = tanh(activations);
+%             
+%             activations = transpose(reshape(activations, s1, s2));
             
         end
         

@@ -1,27 +1,26 @@
 function ia = Main()
 
 
+
 % 
-%     imgPath = '/home/michele/Development/IDRA/IDRA/data/imgDataset';
-%     imagefiles = dir('/home/michele/Development/IDRA/IDRA/data/imgDataset/*.jpg');      
+%     imagefiles = dir('/home/michele/Development/IDRA/IDRA/michele/imgs/*.jpg');      
 %     nfiles = length(imagefiles);    % Number of files found
-%     for ii=1:200
+%     for ii=1:nfiles
 %        currentfilename = imagefiles(ii).name;
 %        currentimage = imread(currentfilename);
-%        images(ii,:,:) = currentimage;
+%        images(ii,:,:,:) = currentimage;
 %     end
 % 
+%     lh = size(images,2);
+%     lw = size(images,3);
+%     images = images(:, lh *0.4: lh*0.6, lw*0.4:lw*0.6,:);
 % 
 %     ss = size(images);
-%     images = reshape(images, ss(1), ss(2)*ss(3));
-% 
-%     images = double(images);
-%     [icasig, A, W] = ica(images, 16);
+%     img1 = reshape(images(1,:,:,:), 1, ss(2)*ss(3)*ss(4));
+%     img2 = reshape(images(2,:,:,:), 1, ss(2)*ss(3)*ss(4));
 
-
-    CheckGPU();
     k = 2;
-    ia = IntentionalArchitecture(k, 16, 8);
+    ia = IntentionalArchitecture(k, 8, 4, 512);
     ia.UseGPU = true;
     
     defaultFilter = @NoFilter;
@@ -29,25 +28,19 @@ function ia = Main()
     input = ia.NewFilterNode(defaultFilter);
     input1 = ia.NewFilterNode(defaultFilter);
     
-    input.Test(zeros(input.InputSize() - 2, 1));
     
-    ia.NewIntentionalModule([1 2]);
-    ia.NewIntentionalModule([1 2]);
-    ia.NewIntentionalModule([3 4]);
-    ia.NewIntentionalModule(3);
-    ia.NewIntentionalModule([5 6]);
-    ia.NewIntentionalModule([3 5]);
-    ia.NewIntentionalModule([2 5]);
-    ia.NewIntentionalModule([1 7]);
-    ia.NewIntentionalModule([8 9]);
-    ia.NewIntentionalModule([7 11]);
-    ia.NewIntentionalModule([9 10]);
-    ia.NewIntentionalModule([10 2]);
-    ia.NewIntentionalModule([11 3]);
-    ia.NewIntentionalModule([4 12]);
+    ia.NewIntentionalModule([2 3]); % 4 5
+    ia.NewIntentionalModule([2 3]); % 6 7
+    ia.NewIntentionalModule([2 4]); % 8 9
+    ia.NewIntentionalModule([2 8]); % 10 11
+    ia.NewIntentionalModule([8 10]); % 12 13
+    ia.NewIntentionalModule([3 6]); % 14 16
+    ia.NewIntentionalModule([3 14]); % 16 17
+    ia.NewIntentionalModule([14 16]); % 18 19
+    ia.NewIntentionalModule([18 12]); % 20 21
     
     
-    PopulateIntentionalArchitecture(ia, k);
+    %PopulateIntentionalArchitecture(ia, k);
     
     s = input.InputSize();
     c = 0.5 * ones(s, 1);
@@ -66,46 +59,56 @@ function ia = Main()
     highlight(p, 1:ia.CountNodes());
     
     figure(2);
-    h = pcolor(power(ia.im_ca, 16));
-   
+    h = pcolor(ia.im_ca);
+    caxis([0 1]);
+    x = 0;
+    
+    
     while 1
-        r = (b-a).*rand(s,1) + a;
-        c = c + r * 0.1;
-        c = max(zeros(s,1), min(ones(s, 1),c));
-        input.SetInput(c);
+        x
+        r = (b-a).*rand(2,s) + a;
+        if x < 200
+            in(1,:) = ones(1,s) * sin(x);
+            in(2,:) = ones(1,s) * sin(x);
+        else
+            if x >= 200 && x <300
+                in(1,:) = ones(1,s) * cos(x);
+                in(2,:) = ones(1,s) * cos(x);
+            else
+                in(1,:) = ones(1,s);
+                in(2,:) = ones(1,s);
+            end
+        end
+        in = in + r * 0.1;
+        x = x+0.2;
         
-        input1.SetInput(ones(s,1) - c);
+        input.SetInput(in(1,:));
+        
+        input1.SetInput(in(2,:));
         
         ia.Update();
         
         
-        activations = ia.im_activations(1:ia.CountNodes());
+        activations = ia.GetNodesActivation(1:ia.CountNodes());
         
         for ii = 1:ia.CountNodes()
-            pp = power(activations(ii), 16);
+            pp = activations(ii);
              highlight(p, ii, 'NodeColor', [1 - pp, pp, 0]);
         end
         
-        h.CData = power(ia.im_ca, 16);
+        h.CData = ia.im_ca;
         refreshdata(h);
         
+        figure(3);
+        mesh(ia.context.map(:,:,1));
+        axis([0 20 0 20 0 1]);
+        caxis([0 1]);
         
-    
-    	pause(0.05);
+        pause(0.05);
     end
 
 end
 
-
-function CheckGPU()
-    global GPU_AVAILABLE;
-    try
-        gpuDevice();
-        GPU_AVAILABLE = 1;
-    catch
-        GPU_AVAILABLE = 0;
-    end
-end
 
 
 function PopulateIntentionalArchitecture(ia, k)

@@ -6,17 +6,15 @@ function [icasig, A, W] = ica(sig, n)
 %   A is the mixing matrix (sig = A*icasig);
 %   W is the separating matrix (icasig = W*sig);
 
-epsilon = 0.00001;
-maxNumIterations = 1000000;
+epsilon = 0.0001;
+maxNumIterations = 100000;
 
 [Dim, NumOfSampl] = size(sig)
 
 
 % Remove the mean and check the data
-mixedsig = zeros(size(sig));
 mixedmean = mean(sig')';
 
-asd = mixedmean * ones(1,size(sig, 2));
 
 mixedsig = sig - mixedmean * ones(1,size(sig, 2));
 
