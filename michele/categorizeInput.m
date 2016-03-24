@@ -3,7 +3,7 @@ function updatedCategories = categorizeInput(data,numberOfCategories)
 % data
 % size(data)
 % numberOfCategories
-[~, updatedCategories] = kmeans(data', numberOfCategories, 'EmptyAction','singleton', 'Onlinephase','on');
+[~, updatedCategories] = kmeans(data', numberOfCategories, 'EmptyAction','singleton');%, 'Onlinephase','on');
 updatedCategories = updatedCategories';
 
 

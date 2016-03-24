@@ -1,7 +1,6 @@
 function ia = Main()
 
 
-
 % 
 %     imagefiles = dir('/home/michele/Development/IDRA/IDRA/michele/imgs/*.jpg');      
 %     nfiles = length(imagefiles);    % Number of files found
@@ -20,7 +19,7 @@ function ia = Main()
 %     img2 = reshape(images(2,:,:,:), 1, ss(2)*ss(3)*ss(4));
 
     k = 2;
-    ia = IntentionalArchitecture(k, 8, 4, 512);
+    ia = IntentionalArchitecture(k, 4, 6, 200);
     ia.UseGPU = true;
     
     defaultFilter = @NoFilter;
@@ -30,9 +29,9 @@ function ia = Main()
     
     
     ia.NewIntentionalModule([2 3]); % 4 5
-    ia.NewIntentionalModule([2 3]); % 6 7
-    ia.NewIntentionalModule([2 4]); % 8 9
-    ia.NewIntentionalModule([2 8]); % 10 11
+    ia.NewIntentionalModule([3 2]); % 6 7
+    ia.NewIntentionalModule([4 6]); % 8 9
+    ia.NewIntentionalModule([6 4]); % 10 11
     ia.NewIntentionalModule([8 10]); % 12 13
     ia.NewIntentionalModule([3 6]); % 14 16
     ia.NewIntentionalModule([3 14]); % 16 17
@@ -62,21 +61,25 @@ function ia = Main()
     h = pcolor(ia.im_ca);
     caxis([0 1]);
     x = 0;
+    figure(3);
+    rm = mesh(ia.context.map(:,:,1));
     
+    %axis([0 20 0 20]);
+    caxis([0 1]);
     
     while 1
         x
         r = (b-a).*rand(2,s) + a;
-        if x < 200
-            in(1,:) = ones(1,s) * sin(x);
-            in(2,:) = ones(1,s) * sin(x);
+        if x < 100
+            in(1,:) = cos(0:3)+0.1*rand(1,4);
+            in(2,:) = sin(0:3)+0.1*rand(1,4);
         else
-            if x >= 200 && x <300
-                in(1,:) = ones(1,s) * cos(x);
-                in(2,:) = ones(1,s) * cos(x);
+            if x >= 100 && x <150
+                in(1,:) = 10*ones(1,4);
+                in(2,:) = 10*ones(1,4);
             else
-                in(1,:) = ones(1,s);
-                in(2,:) = ones(1,s);
+                in(1,:) = sin(0:3)+0.1*rand(1,4);
+                in(2,:) = sin(0:3)+0.1*rand(1,4);
             end
         end
         in = in + r * 0.1;
@@ -97,12 +100,10 @@ function ia = Main()
         end
         
         h.CData = ia.im_ca;
+        rm.CData = ia.context.map(:,:,1);
         refreshdata(h);
+        refreshdata(rm);
         
-        figure(3);
-        mesh(ia.context.map(:,:,1));
-        axis([0 20 0 20 0 1]);
-        caxis([0 1]);
         
         pause(0.05);
     end

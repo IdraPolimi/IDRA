@@ -7,14 +7,16 @@ function [icasig, A, W] = ica(sig, n)
 %   W is the separating matrix (icasig = W*sig);
 
 epsilon = 0.0001;
-maxNumIterations = 100000;
+maxNumIterations = 10000;
 
 [Dim, NumOfSampl] = size(sig)
 
 
 % Remove the mean and check the data
+%mixedsig = zeros(size(sig));
 mixedmean = mean(sig')';
 
+%asd = mixedmean * ones(1,size(sig, 2));
 
 mixedsig = sig - mixedmean * ones(1,size(sig, 2));
 
@@ -25,7 +27,7 @@ covarianceMatrix = cov(mixedsig');
 
 %%%%%%%%%%remove negative eigenvalues and corresponding eigenvector%%%%%%%
 negativeEigenvalues = find(D<0);
-columnIndexes = round(negativeEigenvalues./size(D,1))+1
+columnIndexes = round(negativeEigenvalues./size(D,1))+1;
 D(:,columnIndexes)=[];
 D(columnIndexes,:)=[];
 E(:,columnIndexes)=[];

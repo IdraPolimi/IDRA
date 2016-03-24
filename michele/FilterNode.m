@@ -7,19 +7,19 @@ classdef FilterNode < handle
         index
         ia
         InputSize
-        filter
+        filterFunction
     end
     
     methods
-        function node = FilterNode(intentionalArchitecture, index, InputSize, filter)
+        function node = FilterNode(intentionalArchitecture, index, InputSize, filterFunction)
             node.ia = intentionalArchitecture;
             node.index = index;
             node.InputSize = InputSize;
-            node.filter = filter;
+            node.filterFunction = filterFunction;
         end
         
         function valid = Test(node, inputs)
-            out = node.filter(inputs);
+            out = node.filterFunction(inputs);
             s = size(out, 1);
         	valid = s <= node.InputSize();
         end
@@ -30,7 +30,7 @@ classdef FilterNode < handle
             end
             values = values(1 : node.InputSize);
             
-            node.ia.SetCategoriesActivation(node.index, node.filter(values));
+            node.ia.SetCategoriesActivation(node.index, node.filterFunction(values));
         end
         
         function size = get.InputSize(node)

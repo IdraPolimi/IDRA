@@ -31,6 +31,8 @@ classdef IntentionalArchitecture < handle
         
         im_gathered_input
         im_gathered_input_count
+        
+        im_pca
     end
     
     properties
@@ -83,6 +85,8 @@ classdef IntentionalArchitecture < handle
             ia.im_centroids = zeros(maxSize, icaSize, output_size);
             
             ia.UseGPU = 0;
+            
+            ia.im_pca = cell(maxSize, 1); 
         end
         
         function s = get.ICASize(ia)
@@ -269,23 +273,23 @@ classdef IntentionalArchitecture < handle
                         
                         gathered_input = ia.im_gathered_input(index,:,:);
                         
-                        sigin = reshape(gathered_input, ia.NodesInputSize(), size(gathered_input,3));
+                        sigin = reshape(gathered_input, ia.NodesInputSize(), size(gathered_input,3))';
                         
                         
-                        [data, ~, W] = ica(sigin, ia.ICASize());
-                        ia.im_ica(index,:,:) = W;
+                        [ics, A, W] = fastica(sigin, 'numOfIC', ia.ICASize());
+                        ia.im_ica(index,:,:) = ics;
                         ia.SetBootstraping(index,0);
                         
-                        
-                        updatedCategories = categorizeInput(data,ia.NodesOutputSize());
+                        updatedCategories = categorizeInput(A',ia.NodesOutputSize());
                         ia.im_centroids(index,:,:) = updatedCategories;
                         
-                        
+                        [pc.coeff, pc.score, pc.latent, pc.tsquared, pc.explained, pc.mu] = pca(A);
+                        ia.im_pca{index} = pc;
                     else
                         % Otherwise we accumulate the sample if input
                         % modules are activated
                         aa = ia.GetNodesActivation(in_nodes);
-                        if min(aa) > 0.5;
+                        if min(aa) > 0.7;
                              ia.im_gathered_input(index, :, ia.im_gathered_input_count(index)) = in;
                             ia.im_gathered_input_count(index) = ia.im_gathered_input_count(index) + 1;
                         end
@@ -293,19 +297,37 @@ classdef IntentionalArchitecture < handle
                 else
                     % If the module is not bootstraping we process the
                     % sample through kmeans
-                    w = reshape(ia.im_ica(index,:,:), ia.ICASize(), ia.NodesInputSize());
+                    ics = reshape(ia.im_ica(index,:,:), ia.ICASize(), ia.NodesInputSize());
                     
                     centroids = ia.im_centroids(index,:,:);
                     
                     centroids = reshape(centroids, size(centroids,2), size(centroids,3));
+                    in = in';
+                    a = in * pinv(ics);
                     
-                    ica_proj_sample = w * in;
+                    dd = centroids - repmat(a', 1, size(centroids,2));
                     
-                    dist = sqrt(sum(abs(centroids - repmat(ica_proj_sample, 1, size(centroids,2))).^2,1));
+                    dist = sum( dd.^2 );
                     
-                    %dist = ones(size(dist)) ./ dist;
+                    dist = sqrt(dist);
                     
-                    ia.SetCategoriesActivation(index, ones(size(dist)) - tanh(dist));
+                    
+                    dist = ones(1,length(dist)) - tanh(dist);
+                    
+                    
+                   ia.SetCategoriesActivation(index, dist);
+                   
+                   score = ia.im_pca{index}.score;
+                   mu = ia.im_pca{index}.mu;
+                   coeff = ia.im_pca{index}.coeff;
+                   
+                   c=(a-mu)*pinv(coeff');
+                   
+                   figure(ii*10);
+                   scatter3(score(:,1),score(:,2),score(:,3));
+                   hold on;
+                   scatter3(c(1),c(2),c(3),'R');
+                   hold off;
                 end
                 
             end
@@ -378,6 +400,7 @@ classdef IntentionalArchitecture < handle
             ia.im_centroids = cat(1, ia.im_centroids, zeros(inc_size, ia.ICASize(), ia.NodesOutputSize()));
            
             ia.context.DoubleSize();
+            ia.im_pca = cat(1, ia.im_pca, cell(inc_size, 1));
         end
     end
     
