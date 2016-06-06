@@ -18,7 +18,6 @@ classdef IntentionalArchitecture < handle
         
         im_type
         
-        im_ica
         
         
         im_ca                   % N x OUT matrix containing categories activation
@@ -32,7 +31,13 @@ classdef IntentionalArchitecture < handle
         im_gathered_input
         im_gathered_input_count
         
+        im_ica
+        im_ica_size
         im_pca
+        
+        im_resonating
+        
+        modules
     end
     
     properties
@@ -59,6 +64,7 @@ classdef IntentionalArchitecture < handle
             output_size = categoriesPerModule;
             input_size = k * output_size;
             
+            ia.modules = cell(1,maxSize);
             
             ia.context = SOM_Context(20, output_size * maxSize, 5);
             
@@ -73,7 +79,6 @@ classdef IntentionalArchitecture < handle
             
             ia.im_type = ones(maxSize, 1) * ia.TYPE_EMPTY;
             
-            ia.im_ica = zeros(maxSize, icaSize, input_size);
         
             ia.im_ca = zeros(maxSize, output_size);
             
@@ -86,11 +91,14 @@ classdef IntentionalArchitecture < handle
             
             ia.UseGPU = 0;
             
+            ia.im_ica = cell(maxSize, 1);
+            ia.im_ica_size = icaSize;
             ia.im_pca = cell(maxSize, 1); 
+            ia.im_resonating = zeros(maxSize,1);
         end
         
         function s = get.ICASize(ia)
-            s = size(ia.im_ica,2);
+            s = ia.im_ica_size;
         end
         
         function s = get.TrainingSetSize(ia)
@@ -189,13 +197,9 @@ classdef IntentionalArchitecture < handle
             ia.im_bootstraping(indeces) = values;
         end
         
-        % Getter for the activations of the nodes with the given indeces.
-        % InputNode:        activations are it's input
-        % IntentionalNode : activations are it's output categories
-        % ContextNode:      activations are the values of the context's
-        % som receptor
+        
         function a = GetNodesActivation(ia, indeces)
-            a = ia.im_activations(indeces);
+        	a = ia.im_activations(indeces);
         end
         
         % Setter for the activations of the nodes' categories.
@@ -205,6 +209,10 @@ classdef IntentionalArchitecture < handle
         % som receptor
         function SetCategoriesActivation(ia, indeces, values)
             ia.im_ca(indeces,:) = values;
+        end
+        
+        function SetModuleInput(ia, index, values)
+           ia.SetCategoriesActivation(index, values);
         end
         
     end
@@ -258,7 +266,8 @@ classdef IntentionalArchitecture < handle
             
             for ii = 1:length(indeces)
                 index = indeces(ii);
-                in_nodes = conn(index,:) == 1;
+                module = IntentionalModule(ia, index);
+                in_nodes = find(conn(index,:) == 1);
             	in = ca(in_nodes,:);
                 kk = size(in, 1) - k;
                 in = reshape(in', 1, size(in,1) * size(in,2))';
@@ -275,21 +284,35 @@ classdef IntentionalArchitecture < handle
                         
                         sigin = reshape(gathered_input, ia.NodesInputSize(), size(gathered_input,3))';
                         
+                        sigin = sigin(2:end-1, :);
                         
-                        [ics, A, W] = fastica(sigin, 'numOfIC', ia.ICASize());
-                        ia.im_ica(index,:,:) = ics;
+                        [ic.ics, ic.A, ic.W] = fastica(sigin, 'numOfIc', ia.ICASize());
+                        
+                        A = sigin * pinv(ic.ics);
+                        
+                        ia.im_ica{index} = ic;
                         ia.SetBootstraping(index,0);
+                        [pc.coeff, pc.score, pc.latent, pc.tsquared, pc.explained, pc.mu] = pca(A);
                         
-                        updatedCategories = categorizeInput(A',ia.NodesOutputSize());
+                        updatedCategories = categorizeInput(pc.score',ia.NodesOutputSize());
                         ia.im_centroids(index,:,:) = updatedCategories;
                         
-                        [pc.coeff, pc.score, pc.latent, pc.tsquared, pc.explained, pc.mu] = pca(A);
                         ia.im_pca{index} = pc;
+                        
+%                         ia.NewIntentionalModule(in_nodes);
+%                         ia.NewIntentionalModule(index);
+                        
                     else
                         % Otherwise we accumulate the sample if input
                         % modules are activated
-                        aa = ia.GetNodesActivation(in_nodes);
-                        if min(aa) > 0.7;
+                        parents = in_nodes;
+                        in_activations = ia.GetNodesActivation(parents);
+                        
+                        siblings = find(any(ia.im_connections(:,in_nodes), 2) == true);
+%                        
+                        siblings_activations = ia.GetNodesActivation(siblings);
+                        
+                        if (min(in_activations) > 0.66) && (max(siblings_activations) < 0.33);
                              ia.im_gathered_input(index, :, ia.im_gathered_input_count(index)) = in;
                             ia.im_gathered_input_count(index) = ia.im_gathered_input_count(index) + 1;
                         end
@@ -297,37 +320,47 @@ classdef IntentionalArchitecture < handle
                 else
                     % If the module is not bootstraping we process the
                     % sample through kmeans
-                    ics = reshape(ia.im_ica(index,:,:), ia.ICASize(), ia.NodesInputSize());
+                    ia.im_gathered_input(index,:, 1:end-1) = ia.im_gathered_input(index,:, 2:end);
+                    ia.im_gathered_input(index,:, end) = in;
                     
-                    centroids = ia.im_centroids(index,:,:);
-                    
-                    centroids = reshape(centroids, size(centroids,2), size(centroids,3));
-                    in = in';
-                    a = in * pinv(ics);
-                    
-                    dd = centroids - repmat(a', 1, size(centroids,2));
-                    
-                    dist = sum( dd.^2 );
-                    
-                    dist = sqrt(dist);
+                    if index == 8
+                        a=1;
+                    end
                     
                     
-                    dist = ones(1,length(dist)) - tanh(dist);
+                    in_pc=module.ProcessForward(in');
                     
+                    dist = module.GetCentroidsDistance(in_pc);
                     
+                    [centroid, centroid_index, resonating] = module.IsResonating();
+                   
+                    ia.im_resonating(index) = resonating;
+                    
+                    if ia.GetNodesActivation(index) > 0.5
+                        a = module.Activation*0.1;
+                        if resonating
+                            ia.im_centroids(index,:,centroid_index) = (1 - a) * centroid + a * in_pc;
+                        end
+                    end
+                        
+                   
                    ia.SetCategoriesActivation(index, dist);
                    
-                   score = ia.im_pca{index}.score;
-                   mu = ia.im_pca{index}.mu;
-                   coeff = ia.im_pca{index}.coeff;
-                   
-                   c=(a-mu)*pinv(coeff');
-                   
-                   figure(ii*10);
-                   scatter3(score(:,1),score(:,2),score(:,3));
-                   hold on;
-                   scatter3(c(1),c(2),c(3),'R');
-                   hold off;
+                   %--------------------------------
+                   if index == 4 || index == 8
+                       score = ia.im_pca{index}.score;
+
+                       figure(index*10);
+                       
+                       scatter3(score(:,1 ),score(:, 2),score(:, 3), 'G');
+                       %axis([-0.01 0.01 -0.01 0.01 -0.01 0.01]);
+                       hold on;
+                       scatter3(in_pc(1),in_pc(2),in_pc(3),'R');
+                       scatter3(ia.im_centroids(index,1,:),ia.im_centroids(index,2,:),ia.im_centroids(index,3,:),'B');
+                       
+                       hold off;
+                   end
+                   %--------------------------------
                 end
                 
             end
@@ -385,7 +418,6 @@ classdef IntentionalArchitecture < handle
             
             ia.im_type = cat(1, ia.im_type, ones(inc_size, 1) * ia.TYPE_EMPTY);
             
-            ia.im_ica = cat(1, ia.im_ica, zeros(inc_size, size(ia.im_ica, 2), size(ia.im_ica, 3)));
 
             ia.im_ca = cat(1, ia.im_ca, zeros(inc_size, ia.NodesOutputSize()));
 
@@ -399,8 +431,13 @@ classdef IntentionalArchitecture < handle
             ia.im_gathered_input_count = cat(1, ia.im_gathered_input_count, ones(inc_size,1));
             ia.im_centroids = cat(1, ia.im_centroids, zeros(inc_size, ia.ICASize(), ia.NodesOutputSize()));
            
-            ia.context.DoubleSize();
             ia.im_pca = cat(1, ia.im_pca, cell(inc_size, 1));
+            ia.im_ica = cat(1, ia.im_ica, cell(inc_size, 1));
+            
+            ia.modules = cat(1, ia.modules, cell(inc_size, 1));
+            
+            ia.im_resonating = cat(1, ia.im_resonating, zeros(inc_size, 1)); 
+            ia.context.DoubleSize();
         end
     end
     

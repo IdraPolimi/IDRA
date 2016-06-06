@@ -18,19 +18,17 @@ classdef FilterNode < handle
             node.filterFunction = filterFunction;
         end
         
-        function valid = Test(node, inputs)
-            out = node.filterFunction(inputs);
-            s = size(out, 1);
-        	valid = s <= node.InputSize();
-        end
-        
         function SetInput(node, values)
+            
+            values = node.filterFunction(values);
+            
             if length(values) < node.InputSize
                 values = [values, zeros(1, node.InputSize - length(values))];
             end
+            
             values = values(1 : node.InputSize);
             
-            node.ia.SetCategoriesActivation(node.index, node.filterFunction(values));
+            node.ia.SetModuleInput(node.index, values);
         end
         
         function size = get.InputSize(node)

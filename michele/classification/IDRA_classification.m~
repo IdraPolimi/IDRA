@@ -1,0 +1,89 @@
+close all;
+
+
+
+target_column = 5;
+n_classes = 3; %they are labaled from 1 to n
+
+[data, targets] = thyroid_dataset;
+data = data';
+targets = targets';
+
+ch = ClassificationHelper();
+
+[training_indeces, test_indeces, validation_indeces] = ch.SplitData(data, 0.5, 0.5);
+
+training_data = data(training_indeces,:);
+training_target = targets(training_indeces, :);
+
+
+test_data = data(test_indeces,:);
+test_target = targets(test_indeces, :);
+
+%%
+close all;
+n_centroids = 8;
+gain = 2;
+
+
+ia = IA_classification(0.5, gain);
+ia.UseGPU = true;
+tset_length = length(training_data);
+
+input = ia.NewFilterNode(size(training_data, 2), @NoFilter);
+
+im = ia.NewIntentionalModule(input.index, tset_length-2, n_centroids);
+
+
+%--- Train Intentional Architecture ---
+for ii = 1:tset_length
+    input.SetInput(training_data(ii,:));
+    ia.Update();
+end
+%------------------------------------
+
+
+[train_sim, train_ica] = ch.ProcessIntentionalModule(ia, input.index, im, training_data);
+
+[test_sim, test_ica] = ch.ProcessIntentionalModule(ia, input.index, im, test_data);
+
+
+
+X = training_data';
+T = training_target';
+
+net = trainSoftmaxLayer(X,T);
+
+X = test_data';
+train_T = test_target';
+
+train_Y = net(X);
+
+%%
+
+simX = train_sim';
+T = training_target';
+
+net = trainSoftmaxLayer(X,T);
+
+X = test_sim';
+sim_T = test_target';
+
+sim_Y = net(X);
+
+%%
+
+X = train_ica';
+T = training_target';
+
+net = trainSoftmaxLayer(X,T);
+
+X = test_ica';
+ica_T = test_target';
+
+ica_Y = net(X);
+
+plotconfusion(train_T,train_Y, 'Raw', sim_T, sim_Y,'Simil', ica_T, ica_Y,'ICA');
+
+%%
+    

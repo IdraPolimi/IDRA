@@ -11,6 +11,7 @@ maxNumIterations = 10000;
 
 [Dim, NumOfSampl] = size(sig)
 
+sig = gpuArray(sig);
 
 % Remove the mean and check the data
 %mixedsig = zeros(size(sig));
